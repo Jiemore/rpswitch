@@ -1,0 +1,148 @@
+@page "/"
+@using Microsoft.AspNetCore.SignalR.Client
+@* @using System.Text.Json; *@
+@* @using Newtonsoft.Json.Linq; *@
+@using Newtonsoft.Json;
+@using rpswitch.Remote;
+@using rpswitch.Data;
+@inject NavigationManager NavigationManager
+@implements IAsyncDisposable
+@* @attribute [Authorize] *@
+
+<h1>所有设备</h1>
+<hr>
+<div>
+    @if (device != null)
+    {
+        <hr>
+        <table>
+        <tr>
+            <th align="center">@device.tag</th>
+            <th colspan="4" align="center">在线</th>
+            <td rowspan="2">
+                <button class="btn btn-primary"
+                    @onclick="(() => Execute(device.id.ToString(),MethodCode.ShotdownDevice))"
+                    disabled="@(!IsConnected)">
+                    关闭设备
+                </button>
+            </td>
+        </tr>
+        <tr>
+            <td rowspan="6" align="center">
+                <img height="100" width="100" src="../logo/raspberry-pi-online.png" alt="">
+            </td>
+            <td colspan="4">设备名称：@device.tag</td>
+        </tr>
+        <tr>
+            <td colspan="4">
+                网卡信息：@foreach (var item in device.sys.ip)
+                    {
+                        <span>@item.Key : @item.Value|</span>
+                    }
+                </td>
+                <td rowspan="2">
+                    <button class="btn btn-primary" @onclick="(() => Execute(device.id.ToString(),MethodCode.LogoutDevice))" disabled="@(!IsConnected)">
+                        注销设备
+                    </button>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4">在线时长：@OnlineTime()</td>
+            </tr>
+            <tr>
+                <td colspan="4">更新时间：@device.time</td>
+                <td rowspan="2">
+                    <button class="btn btn-primary" @onclick="(() => Execute(device.id.ToString(),MethodCode.GpioSwitch))"
+                    disabled="@(!IsConnected)">
+                        远程开关
+                    </button>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <div style="@StyleForNumber(device.sys.cpu)">
+                        CPU：@device.sys.cpu%
+                    </div>
+                </td>
+                <td colspan="2">
+                    <div style="@StyleForNumber(device.sys.memory)">
+                        Memory：@device.sys.memory%
+                    </div>
+                </td>
+            </tr>
+        </table>
+    }
+</div>
+
+
+@code {
+    private HubConnection hubConnection;
+    private Device device = null;
+
+    /// <summary>
+    /// 计算在线时间
+    /// /// </summary>
+    /// <returns></returns>
+    private string OnlineTime()
+    {
+        decimal sec = device.sys.uptime;
+        int day = 0, hour = 0, min = 0;
+        min = (int)((sec) / 60);
+        sec = sec % 60;
+        hour = min / 60;
+        min = min % 60;
+        day = hour / 24;
+        hour = hour % 24;
+        return string.Format("{0}天 {1:00}:{2:00}:{3:00}", day, hour, min, sec);
+    }
+
+    /// <summary>
+    /// 渲染资源占用颜色
+    /// </summary>
+    /// <param name="n"></param>
+    /// <returns></returns>
+    private string StyleForNumber(float n)
+    {
+        if (n > 85) return "color:red";
+        else if (n > 55) return "color:orange";
+        return "color:green";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+        .WithUrl(NavigationManager.ToAbsoluteUri("/chathub"))
+        .Build();
+
+        hubConnection.On<string, string>("ReceiveMessage", (user, message) =>
+        {
+            device = JsonConvert.DeserializeObject<Device>(message.ToString());
+            StateHasChanged();
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    /// <summary>
+    /// 向远程设备发送执行指令
+    /// </summary>
+    /// <param name="deviceId"></param>
+    /// <param name="cmd"></param>
+    /// <returns></returns>
+    private async Task Execute(string deviceId, MethodCode mc)
+    {
+        if (hubConnection is not null)
+            await hubConnection.SendAsync("Execute", deviceId, mc);
+    }
+
+    public bool IsConnected =>
+    hubConnection.State == HubConnectionState.Connected;
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}
