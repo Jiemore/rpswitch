@@ -69,16 +69,22 @@ namespace rpswitch
             app.UseHttpsRedirection();//将 HTTP 请求重定向到 HTTPS
             app.UseStaticFiles();//允许提供静态文件，例如 HTML、CSS、图像和 JavaScript
             app.UseRouting();//将路由匹配添加到中间件管道。
-            app.UseCookiePolicy();
+            app.UseCookiePolicy();//Cookie安全
             app.UseAuthentication();//授权用户访问安全资源。
             app.UseAuthorization();
             app.UseEndpoints(endpoints =>
             {
+                // endpoints.MapDefaultControllerRoute();
+                // endpoints.MapGet("/", context =>
+                // {
+                //     return Task.Run(() => context.Response.Redirect("/Account/Login"));
+                // });
                 endpoints.MapBlazorHub();//.RequireAuthorization();
                 endpoints.MapRazorPages();//.RequireAuthorization(); // 为 Razor 页面配置终结点路由
                 endpoints.MapHub<ChatHub>("/chathub");
                 endpoints.MapFallbackToPage("/_Host");
             });
+
         }
     }
 }

@@ -1,0 +1,14 @@
+[Unit]
+Description=rpswitch
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/rpswitch-client
+ExecStart=/usr/bin/sudo -u root /usr/bin/python3 main.py
+Restart=on-failure
+User=root
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

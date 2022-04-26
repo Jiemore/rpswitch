@@ -10,7 +10,7 @@
 @* @attribute [Authorize] *@
 
 <h1>所有设备</h1>
-<hr>
+
 <div>
     @if (device != null)
     {
@@ -41,8 +41,9 @@
                     }
                 </td>
                 <td rowspan="2">
-                    <button class="btn btn-primary" @onclick="(() => Execute(device.id.ToString(),MethodCode.LogoutDevice))" disabled="@(!IsConnected)">
-                        注销设备
+                    <button class="btn btn-primary" @onclick="(() => Execute(device.id.ToString(),MethodCode.RebootDevice))"
+                    disabled="@(!IsConnected)">
+                        重启设备
                     </button>
                 </td>
             </tr>
@@ -110,8 +111,21 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var nav = NavigationManager.ToAbsoluteUri("/chathub");
         hubConnection = new HubConnectionBuilder()
-        .WithUrl(NavigationManager.ToAbsoluteUri("/chathub"))
+        .WithUrl(NavigationManager.ToAbsoluteUri("/chathub"), (opts) =>
+        {
+            opts.HttpMessageHandlerFactory = (message) =>
+                {
+                if (message is HttpClientHandler clientHandler)
+                    // bypass SSL certificate
+                    clientHandler.ServerCertificateCustomValidationCallback += (sender, certificate, chain, sslPolicyErrors) =>
+                                {
+                                    return true;
+                                };
+                return message;
+                        };
+                    })
         .Build();
 
         hubConnection.On<string, string>("ReceiveMessage", (user, message) =>
